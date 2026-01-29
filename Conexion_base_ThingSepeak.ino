@@ -15,6 +15,7 @@
 const int pinDHT = 4;
 const int pinLDR = A0;
 const int pinSuelo = A1;
+const int pinRelay = 7; 
 SoftwareSerial EspSerial(2, 3); // RX, TX
 DHT dht(pinDHT, DHT11);
 Adafruit_BMP280 bmp; // Prot. I2C (SDA=A4, SCL=A5)
@@ -26,8 +27,12 @@ void setup() {
   
   Serial.println(F("\n--- INICIANDO SISTEMA 6 CAMPOS ---"));
 
+  pinMode(pinRelay, OUTPUT);
+  digitalWrite(pinRelay, LOW);
+
   dht.begin();
-  if (!bmp.begin(0x76)) {
+
+  if (!bmp.begin(0x76)) { //porisacaso no este el bmp
     Serial.println(F("⚠️ Error: BMP280 no encontrado."));
   }
 
@@ -46,20 +51,39 @@ void loop() {
 
   // Serial pre envio
   Serial.println(F("\n----------- REPORTE ACTUAL -----------"));
-  Serial.print(F("Temp DHT:")); Serial.print(t_dht); Serial.println(" C");
-  Serial.print(F("Temp BMP:")); Serial.print(t_bmp); Serial.println(" C"); // <--- Mostramos Temp BMP
-  Serial.print(F("Humedad: ")); Serial.print(h_dht); Serial.println(" %");
-  Serial.print(F("Suelo:   ")); Serial.print(suelo); Serial.println(" %");
-  Serial.print(F("Luz:     ")); Serial.println(luz);
-  Serial.print(F("Presion: ")); Serial.print(pres); Serial.println(" hPa");
+  Serial.print(F("(DHT11) Temp interna:")); Serial.print(t_dht); Serial.println(" C");
+  Serial.print(F("(BMP280) Temp extrena:")); Serial.print(t_bmp); Serial.println(" C"); 
+  Serial.print(F("(DHT11) Humedad: ")); Serial.print(h_dht); Serial.println(" %");
+  Serial.print(F("(FC28) Suelo:   ")); Serial.print(suelo); Serial.println(" %");
+  Serial.print(F("(LDR) Luz:     ")); Serial.println(luz);
+  Serial.print(F("(BMP280) Presion: ")); Serial.print(pres); Serial.println(" hPa");
   Serial.println(F("--------------------------------------"));
 
   // Envio a ThingSpeak (Ahora con t_bmp al final)
   enviarAThingSpeak(t_dht, h_dht, suelo, luz, pres, t_bmp);
 
-  // 
-  Serial.println(F("⏳ Esperando 20 seg..."));
-  delay(20000);
+  // Esperar los 20 segundos por cosas de TS y 
+  Serial.println(F("-> Esperando 20 seg para siguiente envio..."));
+  esperarYEscuchar(20000); 
+}
+
+// Funcion de ayuda para bomba
+void esperarYEscuchar(unsigned long tiempoEspera) {
+  Serial.println(F("   (Ingrese 'a' en cualquier momento para regar)"));
+  
+  unsigned long tiempoInicio = millis(); // Nota: millis es solo para medir tiempos, como tal el dalay detiene todo, este solo da un registro del t que pasa
+  
+  // Mientras no hayan pasado los 20 segundos (tiempoEspera)
+  while (millis() - tiempoInicio < tiempoEspera) {
+    if (Serial.available() > 0) {
+      char c = Serial.read();
+      if (c == 'a') {
+        activarBomba();
+      }
+    }
+    // Pequeño retardo para no saturar el procesador
+    delay(10); 
+  }
 }
 
 // Lectura de sensores
@@ -86,6 +110,18 @@ int lectura_fc28() {
 }
 int lectura_ldr() {
   return analogRead(pinLDR);
+}
+
+// Apartado de actuadores
+void activarBomba() {
+  Serial.println(F("\n💦 COMANDO RECIBIDO: Accionando bomba 2 seg..."));
+  digitalWrite(pinRelay, HIGH); // Enciende Bomba
+  delay(1000);                  // Mantiene prendida 2 segundos
+  digitalWrite(pinRelay, LOW);  // Apaga Bomba
+  Serial.println(F("🛑 Bomba apagada. Retomando espera...\n"));
+}
+void dftPlayer(int pista){
+  //later
 }
 
 // Conexion a Wifi
