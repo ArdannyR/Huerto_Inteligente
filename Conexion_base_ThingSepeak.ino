@@ -18,7 +18,7 @@ const int pinLDR = A0;
 const int pinSuelo = A1;
 const int pinRelay = 7; 
 SoftwareSerial EspSerial(2, 3);     // RX, TX para ESP8266
-SoftwareSerial DFSerial(5,6);      // RX, TX para DFPlayer Mini
+SoftwareSerial DFSerial(5, 6);      // RX, TX para DFPlayer Mini
 DHT dht(pinDHT, DHT11);
 Adafruit_BMP280 bmp;   // Prot. I2C (SDA=A4, SCL=A5)
 DFPlayerMini_Fast myMP3;
@@ -89,20 +89,6 @@ void loop() {
 
 // Funcion de alertas
 void verificarAlertas(float temp, float hum, float presion, int suelo, float temp_bmp) {
-  // Pista 2 - Suelo seco FC28 
-  if (suelo < 50) {
-    Serial.println(F("⚠️ ALERTA: Suelo seco detectado (FC28)"));
-    reproducirPista(2);
-    delay(2000); 
-    
-    Serial.println(F("💦 Activando bomba..."));
-    digitalWrite(pinRelay, HIGH);
-    delay(2000); 
-    digitalWrite(pinRelay, LOW);
-    Serial.println(F("🛑 Bomba apagada."));
-    delay(1000); 
-  }
-
   // Pista 4 - Temperatura alta BMP280 
   if (temp_bmp > 30.0) {
     Serial.println(F("⚠️ ALERTA: Temperatura alta (BMP280)"));
@@ -124,6 +110,19 @@ void verificarAlertas(float temp, float hum, float presion, int suelo, float tem
     delay(2000);
   }
   
+    // Pista 2 - Suelo seco FC28 
+  if (suelo < 15) {
+    Serial.println(F("⚠️ ALERTA: Suelo seco detectado (FC28)"));
+    reproducirPista(2);
+    delay(2000); 
+    
+    Serial.println(F("💦 Activando bomba..."));
+    digitalWrite(pinRelay, HIGH);
+    delay(2000); 
+    digitalWrite(pinRelay, LOW);
+    Serial.println(F("🛑 Bomba apagada."));
+    delay(1000); 
+  }
   primeraLectura = false;
 }
 
@@ -146,13 +145,10 @@ float lectura_bmp_temp() {
 }
 int lectura_fc28() {
   int lectura = analogRead(pinSuelo);
-  int porcentaje = ((1023 - lectura) * 100) / (1023 - 300);
-  if (porcentaje < 0) {
-    porcentaje = 0;
-  }
-  if (porcentaje > 100) {
-    porcentaje = 100;
-  }
+  int valorSeco = 1023; 
+  int valorMojado = 400;  
+  int porcentaje = map(lectura, valorSeco, valorMojado, 0, 100);
+  porcentaje = constrain(porcentaje, 0, 100);
   return porcentaje;
 }
 int lectura_ldr() {
